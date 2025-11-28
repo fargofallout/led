@@ -42,7 +42,12 @@ color_dict = {"red": red,
 
 def set_single_color(pixels, color, brightness=1):
     pixels.brightness = brightness
-    pixels.fill(color)
+    pixels.fill(color_dict[color])
+
+
+def set_color_from_grb(pixels, g, r, b, brightness=1):
+    pixels.brightness = brightness
+    pixels.fill((g, r, b))
 
 
 def list_available_colors():
@@ -81,13 +86,36 @@ def all_colors(pixels, num_lights):
             color_position += 1
             pixels[num] = color_list[color_position]
 
+def custom_wave(pixels, user_color_list, color_delay):
+    # write a new wave function where a list of pixels is initialized and a list of lists ([[color, num_remaining], [etc.]])
+    # is used for putting new colors at the beginning of the pixels
+    # this should allow for making the thing infinite, should allow for randomness or christmasness
+    # and will hopefully be faster
+    # user_color_list = [["purple", 4], ["green", 4]]
+    temp_list = [white] * len(pixels)
+
+    while True:
+        for each_color in user_color_list:
+            if each_color[0] == "random":
+                this_color = random.choice(color_list)
+            else:
+                this_color = color_dict[each_color[0]]
+            num_bulbs = each_color[1]
+
+            while num_bulbs > 0:
+                # print('in here')
+                temp_list = [this_color] + temp_list[:-1]
+                pixels[::] = temp_list
+                num_bulbs -= 1
+                sleep(color_delay)
+            # print("broke out?")
+
 
 def white_rainbow_wave(pixels, num_lights, sleep_time, wave_length):
     # CONTINUE HERE: I have a few different wave ideas:
     # allow setting the speed of this wave
     # allow for setting a number waves to be chasing each other
     # setting only specific colors in the wave?
-    # some sort of dimming/brightening thing, although I don't know what controls that
     pixels.fill(white)
     color_position = 0
     accessible_num = 0
@@ -151,7 +179,7 @@ def pulse(pixels, color, time, special_mode=None):
     individual_step = 1 / (num_brightness_changes / 2)
     current_brightness = 0
     time_between_changes = time / num_brightness_changes
-    set_single_color(pixels, color_dict[color], brightness=current_brightness)
+    set_single_color(pixels, color, brightness=current_brightness)
     if special_mode == "christmas":
         temp_list_green = [green] * len(pixels) 
         temp_list_red = [red] * len(pixels)
@@ -190,9 +218,15 @@ def turn_off(pixels):
     pixels.deinit()
 
 
+def set_pixels(num_lights=50):
+    pixels = neopixel.NeoPixel(board.D18, num_lights, brightness=1.00, auto_write=True)
+    return pixels
+
+
 def main():
     num_lights = 50
-    pixels = neopixel.NeoPixel(board.D18, num_lights, brightness = 1.00, auto_write=True)
+    # pixels = neopixel.NeoPixel(board.D18, num_lights, brightness = 1.00, auto_write=True)
+    pixels = set_pixels()
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--testing", action="store_true")
     parser.add_argument("-c", "--single_color", type=str, help="Set a single color")
@@ -204,12 +238,14 @@ def main():
     parser.add_argument("-p", "--pulse", help="Pulse color in and out at a selected speed in the format 'color time' where time is total amount of time between peaks.")
     parser.add_argument("-l", "--list_colors", help="List all named colors", action="store_true")
     # parser.add_argument("-cp", "--christmas_pulse", help="Pulse red, green, and white with a specified time between brightness peaks, e.g., '0.75'")
+    parser.add_argument("-cw", "--custom_wave", help="Custom wave - enter colors, the number of bulbs to be lit for each color, and the sleep time, e.g., '(green 3) (red 3) 0.75'")
     parser.add_argument("-x", "--off", help="Turn all lights off", action="store_true")
 
     args = parser.parse_args()
     print(f"args? {args}")
 
     if args.testing:
+        # new_rainbow(pixels)
         combined_list = [0] * num_lights
         combined_list[::2] = [red] * (len(pixels) // 2)
         combined_list[1::2] = [blue] * (len(pixels) // 2)
@@ -220,7 +256,7 @@ def main():
 
         if color in color_dict:
             print(f"setting {color_dict[color]}")
-            set_single_color(pixels, color_dict[color])
+            set_single_color(pixels, color)
         else:
             print(f"{color} is not a valid color, please try again (I'll get a list of available colors eventually)")
 
@@ -231,13 +267,13 @@ def main():
         all_colors(pixels, num_lights)
 
     elif args.grb_value:
-        rgb_regex = regex.search(r"\((\d{0,3}), (\d{0,3}), (\d{0,3})\)", args.grb_value)
+        rgb_regex = regex.search(r"\(((?:\d|\d\d|[0-1]\d\d|2\d[0-5])), ((?:\d|\d\d|[0-1]\d\d|2\d[0-5])), ((?:\d|\d\d|[0-1]\d\d|2\d[0-5]))\)", args.grb_value)
         if rgb_regex:
             green_value = int(rgb_regex.group(1))
             red_value = int(rgb_regex.group(2))
             blue_value = int(rgb_regex.group(3))
             # print(f"???? {green_value}, {}, {}")
-            set_single_color(pixels, (green_value, red_value, blue_value))
+            set_color_from_grb(pixels, green_value, red_value, blue_value)
         else:
             print("not a valid color value, please try again")
 
@@ -282,13 +318,37 @@ def main():
 
         pulse(pixels, color, time, special_mode)
 
-    # elif args.christmas_pulse:
-    #     christmas_pulse_match = regex.search(r"^(\d+|\d+\.\d+|\.\d+)$", args.christmas_pulse)
-    #     if not christmas_pulse_match:
-    #         print("not a valid number for time between pulses, please try again")
-    #     else:
-    #         time = float(christmas_pulse_match.group(1))
-    #         pulse_christmas_colors(pixels, time)
+    elif args.custom_wave:
+        custom_wave_match = regex.search(r"^((?:\([^\n\)\(]+\) *)+) +(\d|\d*\.\d+)$", args.custom_wave)
+        if custom_wave_match:
+            color_list = custom_wave_match.group(1)
+            delay_time = float(custom_wave_match.group(2))
+            color_split = regex.split(r"\(|\)", color_list)
+            color_repeat_regex = regex.compile(r"^(\w+) *(\d+)$")
+            valid_colors = []
+            input_is_valid = True
+            for each_color in color_split:
+                if each_color.strip():
+                    color_match = color_repeat_regex.match(each_color)
+                    if not color_match:
+                        print(f"the format of this color is not valid: {each_color}")
+                        input_is_valid = False
+                    else:
+                        this_color = color_match.group(1).lower()
+                        num_lights = int(color_match.group(2))
+                        if this_color == "random":
+                            valid_colors.append(["random", num_lights])
+                        elif this_color not in color_dict:
+                            print(f"{this_color} is not a vlaid color")
+                            input_is_valid = False
+                        else:
+                            valid_colors.append([this_color, num_lights])
+            if input_is_valid:
+                # print(f"this is just a list of colors, right? {valid_colors}")
+                custom_wave(pixels, valid_colors, delay_time)
+        else:
+            print(f"not a valid input, please try again - format: '(blue 2) (green 2) (red 2) 0.75'")
+
 
     elif args.list_colors:
         list_available_colors()
