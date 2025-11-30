@@ -2,6 +2,7 @@
 import board
 import neopixel
 from time import sleep
+import datetime
 import random
 import argparse
 import regex
@@ -214,6 +215,37 @@ def pulse(pixels, color, time, special_mode=None):
         sleep(time_between_changes)
 
 
+def call_chaos(pixels, user_color_list):
+    start_time = datetime.datetime.now()
+    total_time_elapsed = 0
+    temp_list = [white] * len(pixels)
+
+    index_list = []
+    for num in range(len(pixels)):
+        index_list.append(num)
+
+    while True:
+        random_time = random.randrange(1, 10, 1) / 100
+        total_time_elapsed += random_time
+
+        num_leds_to_change = random.choice(index_list)
+        random_indices = random.choices(index_list, k=num_leds_to_change)
+
+        for each_pixel in random_indices:
+            this_color = random.choice(user_color_list)
+            if this_color == "random":
+                temp_list[each_pixel] = random.choice(color_list)
+            else:
+                temp_list[each_pixel] = color_dict[this_color]
+
+        pixels[::] = temp_list
+        random_indices = random.choices(index_list, k=5)
+        sleep(random_time)
+
+        # print(f"random time added: {total_time_elapsed}")
+        # print(f"actual time passed: {datetime.datetime.now() - start_time}\n")
+
+
 def turn_off(pixels):
     pixels.deinit()
 
@@ -239,6 +271,7 @@ def main():
     parser.add_argument("-l", "--list_colors", help="List all named colors", action="store_true")
     # parser.add_argument("-cp", "--christmas_pulse", help="Pulse red, green, and white with a specified time between brightness peaks, e.g., '0.75'")
     parser.add_argument("-cw", "--custom_wave", help="Custom wave - enter colors, the number of bulbs to be lit for each color, and the sleep time, e.g., '(green 3) (red 3) 0.75'")
+    parser.add_argument("-ch", "--chaos", help="Chaos: select colors to choose from (or simply enter 'random') in the format 'red, blue, purple, orange' or 'random'")
     parser.add_argument("-x", "--off", help="Turn all lights off", action="store_true")
 
     args = parser.parse_args()
@@ -348,6 +381,26 @@ def main():
                 custom_wave(pixels, valid_colors, delay_time)
         else:
             print(f"not a valid input, please try again - format: '(blue 2) (green 2) (red 2) 0.75'")
+
+
+    elif args.chaos:
+        print("this is chaos!")
+        chaos_match = regex.split(r", *", args.chaos)
+        user_color_list = []
+        input_is_valid = True
+        for each_color in chaos_match:
+            this_color = each_color.strip().lower()
+            if this_color:
+                if this_color == "random":
+                    user_color_list.append("random")
+                elif this_color not in color_dict:
+                    print(f"{this_color} is not a valid color")
+                    input_is_valid = False
+                else:
+                    user_color_list.append(this_color)
+
+        if input_is_valid:
+            call_chaos(pixels, user_color_list)
 
 
     elif args.list_colors:
