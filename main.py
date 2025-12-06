@@ -245,6 +245,9 @@ def call_chaos(pixels, user_color_list):
         # print(f"random time added: {total_time_elapsed}")
         # print(f"actual time passed: {datetime.datetime.now() - start_time}\n")
 
+def wave(pixels, background_color, user_color_list, wave_gap_distance, wave_length):
+    print(f"doin' the wave - these are the colors: {user_color_list}, background: {background_color}, gap: {wave_gap_distance}, length: {wave_length}")
+
 
 def turn_off(pixels):
     pixels.deinit()
@@ -265,17 +268,18 @@ def main():
     parser.add_argument("-r", "--random_colors", help="Set lights to rotate random colors", action="store_true")
     parser.add_argument("-a", "--all_colors", help="Set all 'available' colors", action="store_true")
     parser.add_argument("-v", "--grb_value", help="Set an rgb (grb) value in the format '(g, r, b)'", type=str)
-    parser.add_argument("-w", "--color_wave", help="Do a rainbow wave - arguments are sleep time and wave length, e.g., '0.25 5'", type=str)
+    parser.add_argument("-rm", "--rainbow_march", help="Do a rainbow march - arguments are sleep time and wave length, e.g., '0.25 5'", type=str)
     parser.add_argument("-f", "--flash", help="Color and sleep time for flashing a single color in the format 'color time', e.g., 'blue 0.1'", type=str)
     parser.add_argument("-p", "--pulse", help="Pulse color in and out at a selected speed in the format 'color time' where time is total amount of time between peaks.")
     parser.add_argument("-l", "--list_colors", help="List all named colors", action="store_true")
     # parser.add_argument("-cp", "--christmas_pulse", help="Pulse red, green, and white with a specified time between brightness peaks, e.g., '0.75'")
     parser.add_argument("-cw", "--custom_wave", help="Custom wave - enter colors, the number of bulbs to be lit for each color, and the sleep time, e.g., '(green 3) (red 3) 0.75'")
     parser.add_argument("-ch", "--chaos", help="Chaos: select colors to choose from (or simply enter 'random') in the format 'red, blue, purple, orange' or 'random'")
+    parser.add_argument("-w", "--wave", help="Wave: waves against a background of your choosing with a specified distance between waves and wave length in the format '(background)(color1 color2)5 4'")
     parser.add_argument("-x", "--off", help="Turn all lights off", action="store_true")
 
     args = parser.parse_args()
-    print(f"args? {args}")
+    # print(f"args? {args}")
 
     if args.testing:
         # new_rainbow(pixels)
@@ -310,8 +314,8 @@ def main():
         else:
             print("not a valid color value, please try again")
 
-    elif args.color_wave:
-        float_match = regex.search(r"^(\d+|\d+\.\d+|\.\d+) (\d+)$", args.color_wave)
+    elif args.rainbow_march:
+        float_match = regex.search(r"^(\d+|\d+\.\d+|\.\d+) (\d+)$", args.rainbow_march)
         if float_match:
             sleep_time = float(float_match.group(1))
             wave_length = int(float_match.group(2))
@@ -382,7 +386,6 @@ def main():
         else:
             print(f"not a valid input, please try again - format: '(blue 2) (green 2) (red 2) 0.75'")
 
-
     elif args.chaos:
         print("this is chaos!")
         chaos_match = regex.split(r", *", args.chaos)
@@ -402,6 +405,33 @@ def main():
         if input_is_valid:
             call_chaos(pixels, user_color_list)
 
+    elif args.wave:
+        wave_match = regex.search(r"^\(([^\(\)]+)\) *\(([^\n\(\)]+)\) *([0-9]+) *([0-9]+)$", args.wave)
+        if not wave_match:
+            print("the format of the argument is not correct - please try again")
+        else:
+            background_color = wave_match.group(1).lower().strip()
+            wave_color_match = wave_match.group(2).lower().strip()
+            wave_gap_distance = int(wave_match.group(3))
+            wave_length = int(wave_match.group(4))
+
+            color_split = regex.split(r" +", wave_color_match)
+            user_color_list = []
+
+            colors_match = True
+            if background_color not in color_dict and background_color != "random":
+                print(f"{background_color} is not a valid color")
+                colors_match = False
+
+            for each_color in color_split:
+                if each_color not in color_dict and each_color != "random":
+                    print(f"{each_color} is not a valid color")
+                    colors_match = False
+                else:
+                    user_color_list.append(each_color)
+
+            if colors_match:
+                wave(pixels, background_color, user_color_list, wave_gap_distance, wave_length)
 
     elif args.list_colors:
         list_available_colors()
