@@ -248,6 +248,24 @@ def call_chaos(pixels, user_color_list):
 def wave(pixels, background_color, user_color_list, wave_gap_distance, wave_length):
     print(f"doin' the wave - these are the colors: {user_color_list}, background: {background_color}, gap: {wave_gap_distance}, length: {wave_length}")
 
+    temp_time = 0.5
+    num_lights = len(pixels)
+
+    temp_list = [color_dict[background_color]] * num_lights
+    wave_color_number = 0
+    current_color_pixel_number = 0
+    if user_color_list[0] == "random":
+        first_color = random.choice(color_list)
+    else:
+        first_color = color_dict[user_color_list[0]]
+    color_position_stack = [[first_color, 0]]
+    temp_list[0] = color_position_stack[0][0]
+    while True:
+        for each_wave in color_position_stack:
+            next_lead = each_wave[1] += 1
+
+        sleep(temp_time)
+
 
 def turn_off(pixels):
     pixels.deinit()
